@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Space Monologue — OGE 2026 Task 3</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js"></script>
+
+<style>
+  :root {
+    --bg-space: #09090b;
+    --bg-card: rgba(24, 24, 27, 0.7);
+    --primary: #8B5CF6;
+    --primary-glow: rgba(139, 92, 246, 0.5);
+    --secondary: #06B6D4;
+    --secondary-glow: rgba(6, 182, 212, 0.5);
+    --text-main: #F8FAFC;
+    --text-light: #94A3B8;
+    --danger: #F43F5E;
+    --success: #10B981;
+    --border: rgba(255, 255, 255, 0.1);
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Space Grotesk', sans-serif;
+    background-color: var(--bg-space);
+    background-image:
+      radial-gradient(circle at 15% 50%, rgba(139, 92, 246, 0.15), transparent 25%),
+      radial-gradient(circle at 85% 30%, rgba(6, 182, 212, 0.15), transparent 25%);
+    color: var(--text-main);
+    margin: 0; padding: 20px;
+    display: flex; justify-content: center;
+    min-height: 100vh;
+  }
+  .container {
+    background: var(--bg-card);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border);
+    width: 100%; max-width: 900px; padding: 40px;
+    border-radius: 30px; box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  }
+  .floating-title {
+    font-family: 'Orbitron', sans-serif; font-size: 32px; font-weight: 900;
+    text-align: center; margin-bottom: 25px;
+    background: linear-gradient(to right, var(--secondary), var(--primary));
+    -webkit-background-clip: text; color: transparent;
+    animation: float 6s ease-in-out infinite; text-transform: uppercase; letter-spacing: 2px;
+  }
+  @keyframes float {
+    0% { transform: translateY(0px); text-shadow: 0 0 10px var(--primary-glow); }
+    50% { transform: translateY(-10px); text-shadow: 0 0 20px var(--primary-glow), 0 0 30px var(--secondary-glow); }
+    100% { transform: translateY(0px); text-shadow: 0 0 10px var(--primary-glow); }
+  }
+  .screen { display: none; animation: fadeIn 0.5s ease; }
+  .screen.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+
+  .menu-controls { display: flex; flex-direction: column; gap: 15px; margin-bottom: 25px; }
+  .random-btn, .pdf-btn {
+    font-family: 'Orbitron', sans-serif;
+    color: white; border: none; padding: 22px; font-size: 20px; font-weight: 700; border-radius: 20px; cursor: pointer;
+    width: 100%; box-shadow: 0 10px 30px var(--primary-glow);
+    transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px;
+  }
+  .random-btn { background: linear-gradient(135deg, #8B5CF6, #06B6D4); }
+  .pdf-btn { background: linear-gradient(135deg, #F43F5E, #8B5CF6); box-shadow: 0 10px 30px rgba(244, 63, 94, 0.4); }
+  .random-btn:hover, .pdf-btn:hover { transform: translateY(-5px) scale(1.02); box-shadow: 0 15px 40px var(--primary-glow); }
+
+  .themes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 18px; max-height: 520px; overflow-y: auto; padding: 10px; }
+  .themes-grid::-webkit-scrollbar { width: 8px; }
+  .themes-grid::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 10px; }
+
+  .theme-btn {
+    background: rgba(255, 255, 255, 0.03); color: var(--text-main); border: 1px solid var(--border);
+    padding: 16px; border-radius: 20px; cursor: pointer; font-size: 14px; font-weight: 600; text-align: left;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; overflow: hidden;
+    line-height: 1.35;
+  }
+  .theme-btn:hover { background: rgba(139, 92, 246, 0.1); border-color: var(--primary); transform: translateY(-6px); box-shadow: 0 15px 25px rgba(139, 92, 246, 0.2); }
+
+  .task-card {
+    background: rgba(0,0,0,0.35); border: 1px solid var(--secondary);
+    border-radius: 20px; padding: 25px; margin: 20px 0;
+    box-shadow: 0 0 20px rgba(6, 182, 212, 0.15) inset;
+  }
+  .task-label {
+    font-family: 'Orbitron', sans-serif; font-size: 13px; letter-spacing: 2px;
+    color: var(--secondary); text-transform: uppercase; margin-bottom: 12px;
+  }
+  .task-text { font-size: 16px; line-height: 1.5; margin-bottom: 15px; }
+  .task-points { margin: 0; padding-left: 20px; }
+  .task-points li { margin-bottom: 10px; line-height: 1.45; font-size: 15px; }
+  .task-points li::marker { color: var(--primary); }
+
+  .template-box {
+    background: rgba(139, 92, 246, 0.1); border: 2px dashed var(--primary);
+    border-radius: 16px; padding: 20px; margin-top: 25px; font-size: 15px; line-height: 1.6; color: #fff;
+  }
+  .template-box b { color: var(--primary); font-size: 16px; }
+
+  .timer-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(0,0,0,0.3); border: 1px solid var(--border);
+    border-radius: 14px; padding: 15px 20px; margin: 20px 0;
+  }
+  .timer-label { font-family: 'Orbitron', sans-serif; font-size: 14px; color: var(--text-light); }
+  .timer-value { font-family: 'Orbitron', sans-serif; font-size: 28px; font-weight: 900; color: var(--danger); text-shadow: 0 0 10px rgba(244,63,94,0.5); }
+  .timer-value.prep { color: var(--secondary); text-shadow: 0 0 10px var(--secondary-glow); }
+  .timer-value.done { color: var(--success); text-shadow: 0 0 10px rgba(16,185,129,0.5); }
+
+  .rec-btn {
+    font-family: 'Orbitron', sans-serif; background: transparent; color: var(--danger); border: 2px solid var(--danger);
+    padding: 20px 40px; font-size: 18px; border-radius: 50px; cursor: pointer; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; gap: 15px; margin: 25px auto;
+    transition: all 0.3s ease; text-transform: uppercase;
+  }
+  .rec-btn:hover:not(:disabled) { background: rgba(244, 63, 94, 0.1); box-shadow: 0 0 20px rgba(244, 63, 94, 0.3); }
+  .rec-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .rec-btn.recording { background: var(--danger); color: white; animation: pulse-red 1.5s infinite; }
+  @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(244,63,94,0.7); } 70% { box-shadow: 0 0 0 20px rgba(244,63,94,0); } 100% { box-shadow: 0 0 0 0 rgba(244,63,94,0); } }
+
+  .processing-text { display: none; color: var(--secondary); font-weight: bold; margin-top: 12px; text-align: center; animation: pulse 1s infinite alternate; }
+
+  button.main-btn {
+    font-family: 'Orbitron', sans-serif; background: var(--primary); color: white; border: none; padding: 18px;
+    font-size: 17px; font-weight: 700; border-radius: 15px; cursor: pointer; width: 100%; margin-top: 18px; transition: all 0.3s; text-transform: uppercase;
+  }
+  button.main-btn:hover:not(:disabled) { background: #7C3AED; box-shadow: 0 0 20px var(--primary-glow); }
+  button.main-btn:disabled { background: rgba(255,255,255,0.1); color: var(--text-light); cursor: not-allowed; }
+
+  .back-btn { background: none; border: none; color: var(--text-light); font-weight: 700; cursor: pointer; font-family: 'Orbitron', sans-serif; }
+  .back-btn:hover { color: var(--danger); }
+
+  .result-item {
+    background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+    padding: 18px; border-radius: 15px; margin-bottom: 15px;
+  }
+  .result-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 10px; }
+  .result-title { font-family: 'Orbitron', sans-serif; font-weight: 700; color: var(--secondary); font-size: 14px; }
+  .download-btn {
+    background: var(--secondary); color: #000; text-decoration: none; font-weight: 700;
+    padding: 8px 16px; border-radius: 10px; font-family: 'Orbitron', sans-serif; font-size: 13px;
+    white-space: nowrap;
+  }
+  .download-btn:hover { background: #22D3EE; box-shadow: 0 0 15px var(--secondary-glow); }
+  .transcript {
+    background: rgba(0,0,0,0.3); border-radius: 10px; padding: 12px;
+    font-size: 14px; color: var(--text-light); line-height: 1.5; margin-top: 8px;
+    max-height: 160px; overflow-y: auto; white-space: pre-wrap;
+  }
+  .transcript.empty { font-style: italic; opacity: 0.6; }
+
+  .hint { font-size: 13px; color: var(--text-light); text-align: center; margin-top: 10px; }
+
+  /* ========================================= */
+  /* СТИЛИ ДЛЯ ПЕЧАТИ (Ctrl+P) И СОХРАНЕНИЯ В PDF */
+  /* ========================================= */
+  #print-section {
+    display: none; /* Скрыто на экране */
+  }
+
+  @media print {
+    /* Прячем всё, кроме контейнера для печати */
+    body * {
+      visibility: hidden;
+    }
+    #print-section, #print-section * {
+      visibility: visible;
+    }
+    
+    /* Настройки страницы (сжимаем поля, чтобы дать больше места тексту) */
+    @page {
+      size: A4 portrait;
+      margin: 8mm; /* Уменьшили для увеличения рабочей области */
+    }
+    
+    body {
+      background: white !important;
+      color: black !important;
+      margin: 0;
+      padding: 0;
+      display: block;
+    }
+
+    #print-section {
+      display: block;
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      background: white;
+      color: black;
+    }
+
+    .print-item {
+      border: 1.5px solid #333; /* Сделали рамку чуть четче */
+      border-radius: 8px;
+      padding: 16px; /* Увеличили внутренние отступы */
+      margin-bottom: 15px;
+      page-break-inside: avoid; /* Не разрывать задание между страницами */
+      background: white;
+      font-family: Arial, sans-serif;
+    }
+    
+    /* Каждое 3-е задание начинает новую страницу */
+    .print-item:nth-child(3n+1) {
+      page-break-before: always;
+    }
+    /* Но первое задание не должно начинаться с пустой страницы */
+    .print-item:first-child {
+      page-break-before: auto;
+    }
+
+    .print-item h3 {
+      margin: 0 0 10px 0;
+      font-size: 18px; /* Увеличили заголовок (было 14px) */
+      color: #000;
+      border-bottom: 1.5px solid #ccc;
+      padding-bottom: 6px;
+    }
+    
+    .print-item p {
+      margin: 0 0 10px 0;
+      font-size: 14px; /* Увеличили основной текст (было 11px) */
+      color: #111;
+      line-height: 1.4;
+    }
+    
+    .print-item ul {
+      margin: 0 0 10px 0;
+      padding-left: 22px;
+      font-size: 14px; /* Увеличили пункты плана (было 11px) */
+      color: #000;
+      line-height: 1.4;
+    }
+    
+    .print-item li {
+      margin-bottom: 6px;
+    }
+
+    .print-footer {
+      font-size: 12px; /* Увеличили подпись внизу (было 10px) */
+      font-style: italic;
+      color: #444;
+      margin-top: 8px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- MENU -->
+  <div id="screen-menu" class="screen active">
+    <h1 class="floating-title">Space Monologue</h1>
+    <div class="menu-controls">
+      <button class="random-btn" onclick="startRandom()">🎲 Random Task</button>
+      <button class="pdf-btn" onclick="triggerPrint()">🖨️ Print All Tasks (A4)</button>
+    </div>
+    <div class="themes-grid" id="themes-grid"></div>
+  </div>
+
+  <!-- PREP & SPEAKING -->
+  <div id="screen-exam" class="screen">
+    <div class="header-exam" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+      <button class="back-btn" onclick="backToMenu()">← QUIT</button>
+      <div class="task-label" id="exam-theme-label">TASK 3</div>
+    </div>
+
+    <div class="task-card">
+      <div class="task-label">Task 3 · Monologue</div>
+      <div class="task-text" id="exam-task-text"></div>
+      <ul class="task-points" id="exam-task-points"></ul>
+    </div>
+
+    <div class="template-box" id="template-box">
+      <b>Structure Hint:</b><br>
+      <b>Start:</b> I'm going to give a talk about... To begin with, ... is an important part of everyone's life.<br>
+      <b>Body:</b> Well, ... / Actually, ... / Talking about ..., I can say that... / My attitude to ... is positive/negative because...<br>
+      <b>Conclusion:</b> In conclusion, I'd like to say... That's all I wanted to say about...
+    </div>
+
+    <div class="timer-bar">
+      <span class="timer-label" id="timer-label-text">PREPARATION</span>
+      <span class="timer-value prep" id="timer-display">90s</span>
+    </div>
+
+    <button class="main-btn" id="start-rec-btn" onclick="transitionToSpeaking()" style="display: none; background: var(--secondary); color: #000;">
+      Skip Prep & Start Speaking ➔
+    </button>
+
+    <button class="rec-btn" id="record-btn" onclick="toggleRecording()" style="display: none;" disabled>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg>
+      Start Recording
+    </button>
+    <div class="processing-text" id="processing-text">Converting to MP3…</div>
+
+    <button class="main-btn" id="finish-btn" onclick="finishTask()" disabled style="display: none;">Finish &amp; View Results ➔</button>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="screen-results" class="screen">
+    <h1 class="floating-title" style="font-size:26px;">Mission Complete</h1>
+    <p style="text-align:center; color:var(--text-light);" id="result-theme-name"></p>
+
+    <button class="main-btn" onclick="downloadAsOneMp3()" style="background:var(--secondary); color:#000;">
+      🎵 Download All as ONE MP3
+    </button>
+    <button class="main-btn" onclick="downloadAllZip()" style="background:transparent; border:1px solid var(--border); color:var(--text-main);">
+      📦 Download Files (.zip)
+    </button>
+
+    <div id="results-list" style="margin-top:25px;"></div>
+
+    <button class="main-btn" onclick="backToMenu()" style="background:transparent; border:1px solid var(--primary);">← Back to Menu</button>
+  </div>
+
+</div>
+
+<!-- Скрытая секция для печати (генерируется скриптом) -->
+<div id="print-section"></div>
+
+<script>
+/* ================= ALL TASK 3 MONOLOGUES (OGE 2026) ================= */
+const TASKS = [
+  { title: "School (Variant 1)", taskText: "You are going to give a talk about your school. You will have to start in 1.5 minutes and speak for not more than 2 minutes (10–12 sentences). Remember to say:", points: ["what your typical school day is like;", "what your favourite subject is, and why;", "what you like most about your school;", "what your attitude to your school life is."] },
+  { title: "School (Variant 2)", taskText: "You are going to give a talk about your school. You will have to start in 1.5 minutes and speak for not more than 2 minutes (10–12 sentences). Remember to say:", points: ["what your typical school day is like;", "what subjects at school you find most useful for your future, and why;", "what you are going to do when you leave school;", "what your attitude to school life is."] },
+  { title: "School (Variant 3)", taskText: "You are going to give a talk about your school. You will have to start in 1.5 minutes and speak for not more than 2 minutes (10–12 sentences). Remember to say:", points: ["what you like most about your school;", "what weekday you find the most difficult, and why;", "what you would like to change in your school life;", "what your attitude to your school life is."] },
+  { title: "School (Variant 4)", taskText: "You are going to give a talk about your school. You will have to start in 1.5 minutes and speak for not more than 2 minutes (10–12 sentences). Remember to say:", points: ["what you like about your school most of all;", "how many lessons a day you usually have;", "what school subjects you have chosen for your exams, and why;", "what your attitude to the number of subjects you have to learn is."] },
+  { title: "School Life (Variant 5)", taskText: "You are going to give a talk about school life. You will have to start in 1.5 minutes and speak for not more than 2 minutes (10–12 sentences). Remember to say:", points: ["what your weekday is like;", "what you like about your school most of all;", "whether you prefer classroom learning or online learning, and why;", "what your attitude to your school life is."] },
+  { title: "School Holidays (Variant 6)", taskText: "You are going to give a talk about your school holidays. You will have to start in 1.5 minutes and speak for not more than 2 minutes (10–12 sentences). Remember to say:", points: ["when you have school holidays;", "what school holidays you would make longer, and why;", "what you enjoy doing during your school holidays;", "what your attitude to school holidays is."] },
+  { title: "School Homework (Variant 7)", taskText: "You are going to give a talk about school homework. You will have to start in 1.5 minutes and speak for not more than 2 minutes (10–12 sentences). Remember to say:", points: ["how long it takes you to do your homework;", "what subject you usually start with, and why;", "whether schoolchildren should be given more or less homework, and why;", "what your attitude to school homework is."] },
+  { title: "Travelling in Russia (Variant 8)", taskText: "You are going to give a talk about travelling. You will have to start in 1.5 minutes and speak for not more than 2 minutes (10–12 sentences). Remember to say:", points: ["why people like travelling in Russia;", "what means of transport is the most popular for travelling in Russia, and why;", "what places in Russia you would like to visit;", "what your attitude to travelling is."] },
+  { title: "Travelling (Variant 9)", taskText: "You are going to give a talk about travelling. You will have to start in 1.5 minutes and speak for not more than 2 minutes (10–12 sentences). Remember to say:", points: ["why most people enjoy travelling;", "what people like doing while travelling;", "what place you would like to go to, and why;", "what your attitude to travelling is."] },
+  { title: "Sports (Variant 12)", taskText: "You are going to give a talk about sports. You will have to start in 1.5 minutes and speak for not more than 2 minutes (10–12 sentences). Remember to say:", points: ["why a lot of young people do sports nowadays;", "what sports clubs and teams there are in your school;", "what you do to keep fit;", "what your attitude to doing sports activities is."] },
+  { title: "Keeping Fit (Variant 13)", taskText: "You are going to give a talk about keeping fit. You will have to start in 1.5 minutes and speak for not more than 2 minutes (10–12 sentences). Remember to say:", points: ["why doing sport is very important for modern teenagers;", "what else besides sport young people do to keep fit;", "what you enjoy doing in your free time;", "what your attitude to doing sports activities is."] },
+  { title: "Keeping Fit (Variant 14)", taskText: "You are going to give a talk about keeping fit. You will have to start in 1.5 minutes and speak for not more than 2 minutes (10–12 sentences). Remember to say:", points: ["why a healthy lifestyle is popular nowadays;", "what you do to keep fit;", "what you enjoy doing in your free time;", "what your attitude to doing sports activities is."] },
+  { title: "Animals & Zoos (Variant 15)", taskText: "You are going to give a talk about animals. You will have to start in 1.5 minutes and speak for not more than 2 minutes (10–12 sentences). Remember to say:", points: ["what wild animals live in your region;", "whether it is a good idea to keep a wild animal as a pet, and why;", "why people build zoos in cities and towns;", "what your attitude to zoos is."] },
+  { title: "Films (Variant 16)", taskText: "You are going to give a talk about films. You will have to start in 1.5 minutes and speak for not more than 2 minutes (10–12 sentences). Remember to say:", points: ["what kinds of films modern teenagers enjoy;", "where you prefer watching films: on TV, on the Internet or in the cinema, and why;", "what film you have seen recently, what it was about;", "what your attitude to watching film as a way to spend your free time is."] },
+  { title: "TV (Variant 17)", taskText: "You are going to give a talk about TV. You will have to start in 1.5 minutes and speak for not more than 2 minutes (10–12 sentences). Remember to say:", points: ["why people spend time watching TV;", "what most teenagers prefer: watching TV or browsing the Internet, and why;", "whether there is a TV programme you really like;", "what your attitude to watching TV as a way to spend your free time is."] },
+  { title: "TV (Variant 18)", taskText: "You are going to give a talk about TV. You will have to start in 1.5 minutes and speak for not more than 2 minutes (10–12 sentences). Remember to say:", points: ["whether watching TV is a popular pastime with teenagers, and why, or why not;", "how many hours a week you watch TV;", "what TV programme is the most popular in your family;", "what your attitude to TV is."] },
+  { title: "Environmental Problems (Variant 19)", taskText: "You are going to give a talk about environmental problems. You will have to start in 1.5 minutes and speak for not more than 2 minutes (10–12 sentences). Remember to say:", points: ["why people worry about environmental problems nowadays;", "what the most serious environmental problem in the place where you live is;", "what young people can do to improve the ecological situation;", "what your attitude to environmental problems is."] },
+  { title: "Free Time (Variant 20)", taskText: "You are going to give a talk about free time. You will have to start in 1.5 minutes and speak for not more than 2 minutes (10–12 sentences). Remember to say:", points: ["whether you have a lot of free time, and why, or why not;", "what you enjoy doing in your free time;", "what your Sunday afternoons are like;", "what your attitude to planning your free time is."] },
+  { title: "Hobbies (Variant 21)", taskText: "You are going to give a talk about hobbies. You will have to start in 1.5 minutes and speak for not more than 2 minutes (10–12 sentences). Remember to say:", points: ["why it is important for people to have a hobby;", "what your hobby is and how long you have been doing it;", "how much time a week you give to your hobby and why;", "what your attitude to creative hobbies is."] },
+  { title: "Learning Foreign Languages (Variant 22)", taskText: "You are going to give a talk about learning foreign languages. You will have to start in 1.5 minutes and speak for not more than 2 minutes (10–12 sentences). Remember to say:", points: ["why lots of people learn foreign languages nowadays;", "why you have chosen to do the English exam this year;", "what you did to prepare for your English exam;", "what your attitude to learning foreign languages is."] },
+  { title: "The Internet (Variant 23)", taskText: "You are going to give a talk about the Internet. You will have to start in 1.5 minutes and speak for not more than 2 minutes (10–12 sentences). Remember to say:", points: ["why today's teenagers use the Internet so much;", "how the Internet makes long-distance communication easier;", "what dangers teenagers can face when they use the Internet;", "what your attitude to the Internet is."] },
+  { title: "Best Friend (Variant 24)", taskText: "You are going to give a talk about your best friend. You will have to start in 1.5 minutes and speak for not more than 2 minutes (10–12 sentences). Remember to say:", points: ["what people need friends for;", "how long you and your friend have known each other;", "what you enjoy doing together;", "what your attitude to friendship is."] },
+  { title: "Conflicts with Friends (Variant 25)", taskText: "You are going to give a talk about conflicts with your friends. You will have to start in 1.5 minutes and speak for not more than 2 minutes (10–12 sentences). Remember to say:", points: ["why teenagers can have a conflict with their friends;", "what you usually have conflicts with your friends about;", "how you usually make up with your friends;", "what your attitude to conflicts with your friends is."] },
+  { title: "The Place Where You Live (Variant 26)", taskText: "You are going to give a talk about the place where you live. You will have to start in 1.5 minutes and speak for not more than 2 minutes (10–12 sentences). Remember to say:", points: ["what your city, town or village is famous for;", "what your favourite place in your city, town or village is, and why you like it;", "whether you are going to stay in your city, town or village after leaving school or move to another place, and why;", "what your attitude to your city, town or village is."] },
+  { title: "Family (Variant 27)", taskText: "You are going to give a talk about family. You will have to start in 1.5 minutes and speak for not more than 2 minutes (10–12 sentences). Remember to say:", points: ["why family plays an important role in every person's life;", "what a typical Russian family is like;", "who you feel closest to in your family and why;", "what your attitude to having a big family is."] },
+  { title: "Shopping (Variant 28)", taskText: "You are going to give a talk about shopping. You will have to start in 1.5 minutes and speak for not more than 2 minutes (10–12 sentences). Remember to say:", points: ["who you like shopping with and why;", "what you like and dislike shopping for;", "what your attitude to online shopping is;", "why many people enjoy shopping."] },
+  { title: "Pocket Money (Variant 29)", taskText: "You are going to give a talk about pocket money. You will have to start in 1.5 minutes and speak for not more than 2 minutes (10–12 sentences). Remember to say:", points: ["why it is important for a teenager to have pocket money;", "how much pocket money a week you usually get;", "what you spend your pocket money on and why;", "what your attitude to earning pocket money is."] },
+  { title: "Household Chores (Variant 30)", taskText: "You are going to give a talk about household chores. You will have to start in 1.5 minutes and speak for not more than 2 minutes (10–12 sentences). Remember to say:", points: ["why it is important to share the household chores in a family;", "how household chores are divided in your family;", "what household chores you like and dislike doing and why;", "what your attitude to ignoring household chores is."] }
+];
+
+/* ================= STATE ================= */
+let currentTask = null;
+let phase = 'prep';
+let timerInterval = null;
+let timeLeft = 0;
+
+let mediaRecorder;
+let audioChunks = [];
+let isRecording = false;
+const recordBtn = document.getElementById('record-btn');
+const processingText = document.getElementById('processing-text');
+const finishBtn = document.getElementById('finish-btn');
+const startRecBtn = document.getElementById('start-rec-btn');
+const timerDisplay = document.getElementById('timer-display');
+const timerLabelText = document.getElementById('timer-label-text');
+
+let savedAnswers = [];
+let recognition = null;
+let finalTranscript = '';
+
+function initRecognition() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) return null;
+  const rec = new SpeechRecognition();
+  rec.lang = 'en-US';
+  rec.interimResults = true;
+  rec.continuous = true;
+  rec.onresult = (event) => {
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      if (event.results[i].isFinal) {
+        finalTranscript += event.results[i][0].transcript + ' ';
+      }
+    }
+  };
+  rec.onerror = () => {};
+  return rec;
+}
+
+/* ================= MENU ================= */
+function initMenu() {
+  const grid = document.getElementById('themes-grid');
+  grid.innerHTML = '';
+  TASKS.forEach((task, index) => {
+    const btn = document.createElement('button');
+    btn.className = 'theme-btn';
+    btn.innerText = task.title;
+    btn.onclick = () => startTask(index);
+    grid.appendChild(btn);
+  });
+}
+initMenu();
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function backToMenu() {
+  stopAllTimers();
+  stopRecording(true);
+  savedAnswers = [];
+  currentTask = null;
+  showScreen('screen-menu');
+}
+
+/* ================= PRINT LOGIC ================= */
+function triggerPrint() {
+  const printSection = document.getElementById('print-section');
+  printSection.innerHTML = ''; // Очищаем предыдущий рендер
+
+  // Генерируем все задания
+  TASKS.forEach(task => {
+    const item = document.createElement('div');
+    item.className = 'print-item';
+    
+    const pointsHtml = task.points.map(p => `<li>${p}</li>`).join('');
+    
+    item.innerHTML = `
+      <h3>${task.title}</h3>
+      <p>${task.taskText}</p>
+      <ul>${pointsHtml}</ul>
+      <div class="print-footer">You have to talk continuously.</div>
+    `;
+    printSection.appendChild(item);
+  });
+
+  // Вызываем окно печати браузера
+  window.print();
+}
+
+/* ================= START ================= */
+function startTask(index) {
+  currentTask = TASKS[index];
+  startPrep();
+}
+
+function startRandom() {
+  const idx = Math.floor(Math.random() * TASKS.length);
+  currentTask = TASKS[idx];
+  startPrep();
+}
+
+function startPrep() {
+  savedAnswers = [];
+  phase = 'prep';
+  timeLeft = 90;
+
+  document.getElementById('exam-theme-label').innerText = 'TASK 3 · ' + currentTask.title.toUpperCase();
+  document.getElementById('exam-task-text').innerText = currentTask.taskText;
+  const ul = document.getElementById('exam-task-points');
+  ul.innerHTML = '';
+  currentTask.points.forEach(p => {
+    const li = document.createElement('li');
+    li.innerText = p;
+    ul.appendChild(li);
+  });
+
+  timerLabelText.innerText = 'PREPARATION';
+  timerDisplay.innerText = '90s';
+  timerDisplay.className = 'timer-value prep';
+  
+  startRecBtn.style.display = 'block';
+  recordBtn.style.display = 'none';
+  finishBtn.style.display = 'none';
+
+  showScreen('screen-exam');
+  startTimer();
+}
+
+function transitionToSpeaking() {
+  if (phase !== 'prep') return;
+  phase = 'speak';
+  timeLeft = 120;
+
+  timerLabelText.innerText = 'SPEAKING TIME';
+  timerDisplay.innerText = '120s';
+  timerDisplay.className = 'timer-value';
+
+  startRecBtn.style.display = 'none';
+  recordBtn.style.display = 'flex';
+  recordBtn.disabled = false;
+  finishBtn.style.display = 'block';
+  finishBtn.disabled = true;
+
+  startTimer();
+}
+
+function startTimer() {
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    timerDisplay.innerText = timeLeft + 's';
+    
+    if (timeLeft <= 0) {
+      clearInterval(timerInterval);
+      timerDisplay.innerText = '0s';
+      if (phase === 'prep') {
+        transitionToSpeaking();
+      } else {
+        timerDisplay.className = 'timer-value done';
+        stopRecording();
+        finishBtn.disabled = false;
+      }
+    }
+  }, 1000);
+}
+
+function stopAllTimers() {
+  clearInterval(timerInterval);
+}
+
+/* ================= RECORDING ================= */
+async function toggleRecording() {
+  if (isRecording) {
+    stopRecording();
+  } else {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
+      audioChunks = [];
+      finalTranscript = '';
+
+      recognition = initRecognition();
+      if (recognition) {
+        try { recognition.start(); } catch(e) { console.warn("Recognition start failed", e); }
+      }
+
+      mediaRecorder.ondataavailable = event => {
+        if (event.data.size > 0) audioChunks.push(event.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach(track => track.stop());
+        if (recognition) {
+          try { recognition.stop(); } catch(e) {}
+        }
+
+        processingText.style.display = 'block';
+        recordBtn.style.display = 'none';
+
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+
+        try {
+          const { mp3Blob, audioBuffer } = await convertToMp3(audioBlob);
+          savedAnswers.push({
+            taskTitle: currentTask.title,
+            blob: mp3Blob,
+            ext: 'mp3',
+            buffer: audioBuffer,
+            transcript: finalTranscript.trim()
+          });
+        } catch (err) {
+          console.error('MP3 error:', err);
+          alert('Error converting to MP3.');
+        }
+
+        processingText.style.display = 'none';
+        recordBtn.style.display = 'flex';
+        recordBtn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8"/></svg> Record Again';
+        recordBtn.classList.remove('recording');
+        finishBtn.disabled = false;
+      };
+
+      mediaRecorder.start();
+      isRecording = true;
+      recordBtn.classList.add('recording');
+      recordBtn.innerHTML = '⏹ Stop Recording';
+    } catch (err) {
+      console.error("Mic error:", err);
+      alert('Microphone access denied or not available. Please ensure you have a microphone connected and allow access in your browser settings.');
+    }
+  }
+}
+
+function stopRecording(silent = false) {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+  }
+  isRecording = false;
+  if (!silent) {
+    recordBtn.classList.remove('recording');
+  }
+}
+
+/* ================= MP3 CONVERSION ================= */
+async function convertToMp3(webmBlob) {
+  const arrayBuffer = await webmBlob.arrayBuffer();
+  const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+  const left = audioBuffer.getChannelData(0);
+  const right = audioBuffer.numberOfChannels > 1 ? audioBuffer.getChannelData(1) : left;
+
+  const mp3encoder = new lamejs.Mp3Encoder(2, audioBuffer.sampleRate, 128);
+  const mp3Data = [];
+  const sampleBlockSize = 1152;
+
+  function floatTo16BitPCM(input) {
+    const output = new Int16Array(input.length);
+    for (let i = 0; i < input.length; i++) {
+      const s = Math.max(-1, Math.min(1, input[i]));
+      output[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+    return output;
+  }
+
+  const left16 = floatTo16BitPCM(left);
+  const right16 = floatTo16BitPCM(right);
+
+  for (let i = 0; i < left16.length; i += sampleBlockSize) {
+    const leftChunk = left16.subarray(i, i + sampleBlockSize);
+    const rightChunk = right16.subarray(i, i + sampleBlockSize);
+    const mp3buf = mp3encoder.encodeBuffer(leftChunk, rightChunk);
+    if (mp3buf.length > 0) mp3Data.push(new Int8Array(mp3buf));
+  }
+  const mp3buf = mp3encoder.flush();
+  if (mp3buf.length > 0) mp3Data.push(new Int8Array(mp3buf));
+
+  return {
+    mp3Blob: new Blob(mp3Data, { type: 'audio/mp3' }),
+    audioBuffer: audioBuffer
+  };
+}
+
+/* ================= MERGE & DOWNLOAD ================= */
+async function downloadAsOneMp3() {
+  if (savedAnswers.length === 0) return;
+  const btn = document.querySelector('button[onclick="downloadAsOneMp3()"]');
+  const originalText = btn.innerHTML;
+  btn.innerHTML = '⏳ Mixing…';
+  btn.disabled = true;
+
+  try {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    let totalLength = 0;
+    const pauseSamples = Math.floor(audioContext.sampleRate * 1);
+
+    savedAnswers.forEach(ans => {
+      totalLength += ans.buffer.length + pauseSamples;
+    });
+
+    const finalBuffer = audioContext.createBuffer(
+      savedAnswers[0].buffer.numberOfChannels,
+      totalLength,
+      audioContext.sampleRate
+    );
+
+    for (let ch = 0; ch < finalBuffer.numberOfChannels; ch++) {
+      const channelData = finalBuffer.getChannelData(ch);
+      let offset = 0;
+      savedAnswers.forEach(ans => {
+        const data = ans.buffer.numberOfChannels > ch ? ans.buffer.getChannelData(ch) : ans.buffer.getChannelData(0);
+        channelData.set(data, offset);
+        offset += data.length + pauseSamples;
+      });
+    }
+
+    const left = finalBuffer.getChannelData(0);
+    const right = finalBuffer.numberOfChannels > 1 ? finalBuffer.getChannelData(1) : left;
+
+    const mp3encoder = new lamejs.Mp3Encoder(2, finalBuffer.sampleRate, 128);
+    const mp3Data = [];
+    const sampleBlockSize = 1152;
+
+    function floatTo16BitPCM(input) {
+      const output = new Int16Array(input.length);
+      for (let i = 0; i < input.length; i++) {
+        const s = Math.max(-1, Math.min(1, input[i]));
+        output[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+      }
+      return output;
+    }
+
+    const left16 = floatTo16BitPCM(left);
+    const right16 = floatTo16BitPCM(right);
+
+    for (let i = 0; i < left16.length; i += sampleBlockSize) {
+      const leftChunk = left16.subarray(i, i + sampleBlockSize);
+      const rightChunk = right16.subarray(i, i + sampleBlockSize);
+      const mp3buf = mp3encoder.encodeBuffer(leftChunk, rightChunk);
+      if (mp3buf.length > 0) mp3Data.push(new Int8Array(mp3buf));
+    }
+    const mp3buf = mp3encoder.flush();
+    if (mp3buf.length > 0) mp3Data.push(new Int8Array(mp3buf));
+
+    const finalBlob = new Blob(mp3Data, { type: 'audio/mp3' });
+    const url = URL.createObjectURL(finalBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'Monologue_' + (currentTask ? currentTask.title.replace(/\s+/g,'_') : 'task') + '.mp3';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    console.error(e);
+    alert('Error mixing audio.');
+  } finally {
+    btn.innerHTML = originalText;
+    btn.disabled = false;
+  }
+}
+
+async function downloadAllZip() {
+  if (savedAnswers.length === 0) return;
+  const zip = new JSZip();
+  savedAnswers.forEach((ans, i) => {
+    const safeTitle = ans.taskTitle.replace(/[^\w\s-]/g,'').replace(/\s+/g,'_');
+    zip.file(`Answer_${i+1}_${safeTitle}.${ans.ext}`, ans.blob);
+    if (ans.transcript) {
+      zip.file(`Answer_${i+1}_${safeTitle}.txt`, ans.transcript);
+    }
+  });
+  const content = await zip.generateAsync({ type: 'blob' });
+  const zipUrl = URL.createObjectURL(content);
+  const a = document.createElement('a');
+  a.href = zipUrl;
+  a.download = 'My_Monologue_Answers.zip';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(zipUrl);
+}
+
+/* ================= FINISH ================= */
+function finishTask() {
+  stopAllTimers();
+  stopRecording(true);
+  showResults();
+}
+
+function showResults() {
+  showScreen('screen-results');
+  document.getElementById('result-theme-name').innerText = currentTask ? currentTask.title : '';
+  const list = document.getElementById('results-list');
+  list.innerHTML = '';
+
+  if (savedAnswers.length === 0) {
+    list.innerHTML = '<p style="text-align:center; color:var(--text-light);">No recorded answers.</p>';
+    return;
+  }
+
+  savedAnswers.forEach((ans, index) => {
+    const url = URL.createObjectURL(ans.blob);
+    const div = document.createElement('div');
+    div.className = 'result-item';
+    const transcriptHtml = ans.transcript
+      ? `<div class="transcript">${escapeHtml(ans.transcript)}</div>`
+      : `<div class="transcript empty">Transcript not available (browser does not support speech recognition or mic was muted).</div>`;
+    div.innerHTML = `
+      <div class="result-head">
+        <div class="result-title">${escapeHtml(ans.taskTitle)}</div>
+        <a href="${url}" download="Answer_${index+1}.${ans.ext}" class="download-btn">Download MP3</a>
+      </div>
+      ${transcriptHtml}
+    `;
+    list.appendChild(div);
+  });
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+
+</body>
+</html>
